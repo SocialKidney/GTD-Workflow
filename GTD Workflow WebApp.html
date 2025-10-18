@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTD Decision Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .card {
+            box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.1), 0 5px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        /* Custom scrollbar for content area */
+        .content-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        .content-area::-webkit-scrollbar-thumb {
+            background-color: #d1d5db; /* gray-300 */
+            border-radius: 4px;
+        }
+        .content-area::-webkit-scrollbar-track {
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        .trigger-item {
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+        .trigger-item:hover {
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        .trigger-item.reviewed {
+            background-color: #d1fae5; /* green-100 */
+            text-decoration: line-through;
+            color: #10b981; /* green-500 */
+        }
+        .checklist-item {
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            background-color: #fff;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: background-color 0.15s;
+        }
+        .checklist-item.complete {
+            background-color: #f0fdf4; /* green-50 */
+            text-decoration: line-through;
+            color: #10b981; /* green-500 */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex items-center justify-center">
+
+    <div id="app" class="w-full max-w-lg">
+        <div class="card bg-white p-6 md:p-8 rounded-xl border border-gray-200">
+            <!-- Header -->
+            <div class="mb-6 border-b pb-4">
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 text-indigo-500 mr-2">
+                        <path fill-rule="evenodd" d="M11.08 1.542a1.002 1.002 0 0 1 1.84 0l1.758 3.516a1.002 1.002 0 0 0 .708.471l3.91 1.637a1.002 1.002 0 0 1 .593 1.579l-2.73 3.64c-.354.472-.474 1.1-.318 1.656l1.396 4.789a1.002 1.002 0 0 1-1.464 1.066l-4.145-2.28a1.002 1.002 0 0 0-.966 0l-4.145 2.28a1.002 1.002 0 0 1-1.464-1.066l1.396-4.789c.156-.556.036-1.184-.318-1.656l-2.73-3.64a1.002 1.002 0 0 1 .593-1.58l3.91-1.636a1.002 1.002 0 0 0 .708-.472z" clip-rule="evenodd" />
+                    </svg>
+                    GTD Flow Guide
+                </h1>
+                <p id="currentPhase" class="text-sm text-indigo-500 font-semibold mt-1">Phase: Initializing...</p>
+            </div>
+
+            <!-- Main Content Area -->
+            <div id="guideContent" class="content-area max-h-96 overflow-y-auto pr-2">
+                <h2 id="stepTitle" class="text-xl font-bold text-gray-700 mb-3"></h2>
+                <p id="stepText" class="text-gray-600 leading-relaxed"></p>
+                <p id="stepFeedback" class="text-green-600 font-semibold mt-3 hidden rounded-lg bg-green-50 p-3 border border-green-200"></p>
+            </div>
+
+            <!-- Options/Action Buttons -->
+            <div id="optionsContainer" class="mt-8 space-y-3">
+                <!-- Buttons will be dynamically inserted here -->
+            </div>
+
+            <!-- Attribution -->
+            <p class="mt-4 text-xs italic text-gray-400 text-center border-t pt-2">
+                Developed by <a href="https://x.com/dr_nikhilshah" target="_blank" class="text-indigo-500 hover:text-indigo-600 font-medium">Nikhil Shah</a>
+            </p>
+
+            <!-- History/Progress -->
+            <div id="historyContainer" class="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
+                <p>Items Processed: <span id="itemsProcessedSpan">0</span></p>
+                <p>Steps Taken: <span id="currentStepHistorySpan">0</span></p>
+                <button onclick="goBack()" id="backButton" class="mt-2 text-indigo-500 hover:text-indigo-600 disabled:text-gray-400 disabled:cursor-not-allowed font-medium" disabled>← Go Back</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        
+        // Helper function to get the category config
+        function getCategoryConfig(categoryName) {
+            return labelCategories.find(cat => cat.name === categoryName);
+        }
+
+        // Define the label categories and their options.
+        const labelCategories = [
+            // Area of Focus (Single Select) - Top Group
+            { name: 'ADMIN', single: true, labels: ['@Adm-PMIL', '@Adm-PD Director', '@Adm-PDI Some'] },
+            { name: 'FAMILY', single: true, labels: ['@FAM-General', '@FAM-Kids', '@FAM-Gauri', '@FAM-Home'] },
+            { name: 'PERSONAL', single: true, labels: ['@ME-General', '@ME-Productivity', '@ME-Leadership', '@ME-Reading'] },
+            { name: 'WORK', single: true, labels: ['@WORK-Clinical', '@WORK-AHS', '@WORK-UOA'] },
+            { name: 'ACADEMICS', single: true, labels: ['@ACAD-ToRead', '@ACAD-Ideas', '@ACAD-Talks', '@ACAD-Other'] },
+            
+            // Execution/Context (Multi-Select) - Bottom Group
+            { name: 'TIMELINE', single: false, labels: ['@ThisMonth', '@TwoWeeks', '@ThisWeek', '@Today'] },
+            { name: 'TIME', single: false, labels: ['@15min', '@30min', '@60min'] },
+            { name: 'CONTEXT', single: false, labels: ['@Errands', '@Phone', '@Office', '@Dialysis', '@Computer', '@home'] },
+            { name: 'ENERGY', single: false, labels: ['@High_Energy', '@Low_Energy'] },
+        ];
+        
+        // Comprehensive Weekly Review Trigger List (Tailored for a Physician)
+        const brainDumpTriggers = {
+            professional: [
+                { category: 'CLINICAL/PATIENT CARE (Core Check) 🩺', items: [
+                    'Unsigned charts/orders in EMR', 'Pending consult requests/follow-ups', 'Labs/imaging pending review/sign-off', 'Incomplete discharge summaries (Last 7 days)', 'Patient messages/inbox zero (EMR/Portal)', 'Upcoming on-call/clinic shifts (Hard Landscape Prep)', 'Difficult cases requiring literature/peer review'
+                ]},
+                { category: 'PROFESSIONAL PROJECTS', items: [
+                    'Projects started, not completed',
+                    'Projects that need to be started',
+                    '"Look into..." projects'
+                ]},
+                { category: 'PROFESSIONAL COMMITMENTS', items: [
+                    'Boss/partners',
+                    'Colleagues',
+                    'Subordinates',
+                    'Organizations',
+                    'Vendors'
+                ]},
+                { category: 'PROFESSIONAL COMMUNICATION INPUTS', items: [
+                    'Phone calls',
+                    'Voice mails',
+                    'E-mails',
+                    'Text messages',
+                    'Letters',
+                    'Social media postings'
+                ]},
+                { category: 'WRITING & SUBMISSIONS', items: [
+                    'Reports',
+                    'Evaluations/reviews',
+                    'Proposals',
+                    'Articles',
+                    'Marketing materials',
+                    'Manuals/instructions',
+                    'Summaries',
+                    'Rewrites and edits',
+                    'Status reporting',
+                    'Conversation and communication tracking'
+                ]},
+                { category: 'FINANCIAL & EXPENSE', items: [
+                    'Financial planning/organizing',
+                    'Accounting',
+                    'Expense reporting'
+                ]},
+                { category: 'MEETINGS & APPOINTMENTS', items: [
+                    'Upcoming meetings',
+                    'Meetings to set/request',
+                    'Meetings to debrief'
+                ]},
+                { category: 'ADMINISTRATION/SYSTEMS', items: [
+                    'Organization development',
+                    'Administration',
+                    'Sales/Meetings',
+                    'Systems: devices, software, databases, filing',
+                    'Maintenance/cleaning',
+                    'Security'
+                ]},
+                { category: 'PROFESSIONAL DEVELOPMENT', items: [
+                    'Training/seminars',
+                    'Things to learn',
+                    'Skills to develop',
+                    'Books to study',
+                    'Research',
+                    'Education',
+                    'Career research',
+                    'Résumé',
+                    'Objectives',
+                    'Wardrobe'
+                ]},
+                { category: 'PROFESSIONAL WAITING FOR (DELEGATION)', items: [
+                    'Information',
+                    'Delegated tasks/projects',
+                    'Answers',
+                    'Replies',
+                    'Reimbursements',
+                    'Insurance claims',
+                    'Ordered items',
+                    'Repairs',
+                    'Tickets',
+                    'Decisions'
+                ]}
+            ],
+            personal: [
+                { category: 'PERSONAL PROJECTS', items: [
+                    'Projects started/not completed',
+                    'Projects to be started',
+                    'Projects—other organizations'
+                ]},
+                { category: 'FAMILY & SOCIAL COMMITMENTS', items: [
+                    'Partner/spouse',
+                    'Children',
+                    'Parents',
+                    'Family',
+                    'Friends',
+                    'Professionals (Personal appointments)',
+                    'Returnable items',
+                    'Debts'
+                ]},
+                { category: 'PERSONAL COMMUNICATIONS', items: [
+                    'Calls',
+                    'E-mails',
+                    'Cards and letters',
+                    'Thank-yous',
+                    'Texts',
+                    'Social media postings'
+                ]},
+                { category: 'UPCOMING EVENTS', items: [
+                    'Birthdays',
+                    'Anniversaries',
+                    'Weddings',
+                    'Graduations',
+                    'Receptions',
+                    'Outings',
+                    'Holidays',
+                    'Vacations',
+                    'Travel',
+                    'Dinners',
+                    'Parties',
+                    'Cultural events',
+                    'Sporting events'
+                ]},
+                { category: 'HOME/HOUSEHOLD MAINTENANCE', items: [
+                    'Garage',
+                    'Walls',
+                    'Floors',
+                    'Ceilings',
+                    'Decor',
+                    'Furniture',
+                    'Appliances',
+                    'Kitchen supplies/equipment',
+                    'Laundry',
+                    'Cleaning',
+                    'Storage',
+                    'Service providers'
+                ]},
+                { category: 'PERSONAL ADMINISTRATION/TECH', items: [
+                    'Home office supplies',
+                    'Equipment',
+                    'Phones',
+                    'Media',
+                    'Voice mail',
+                    'Computers',
+                    'Software',
+                    'Internet',
+                    'Filing',
+                    'Backup'
+                ]},
+                { category: 'HEALTH & WELLNESS', items: [
+                    'Doctors',
+                    'Dentist',
+                    'Optometrist',
+                    'Specialists',
+                    'Checkups',
+                    'Diet',
+                    'Exercise'
+                ]},
+                { category: 'PERSONAL DEVELOPMENT & LEISURE', items: [
+                    'Leisure',
+                    'Classes',
+                    'Education',
+                    'Coaching',
+                    'Creative expressions'
+                ]},
+                { category: 'TRANSPORTATION & VEHICLES', items: [
+                    'Motor vehicles',
+                    'Bicycles',
+                    'Maintenance',
+                    'Repair',
+                    'Commuting'
+                ]},
+                { category: 'CLOTHES & WARDROBE', items: [
+                    'Professional',
+                    'Casual',
+                    'Formal',
+                    'Sports',
+                    'Accessories',
+                    'Repairs',
+                    'Tailoring'
+                ]},
+                { category: 'ERRANDS / SHOPPING', items: [
+                    'Stores (Hardware, Supplies, Groceries, Gifts, Pharmacy)',
+                    'Bank',
+                    'Cleaners',
+                    'Repairs'
+                ]},
+                { category: 'COMMUNITY & CIVIC', items: [
+                    'Neighborhood/Neighbors',
+                    'Service/Schools',
+                    'Civic involvement',
+                    'Voting'
+                ]},
+                { category: 'PERSONAL WAITING FOR', items: [
+                    'Product orders',
+                    'Repairs',
+                    'Reimbursements',
+                    'Loaned items',
+                    'Information',
+                    'RSVPs',
+                    'Projects/tasks completed by family/friends'
+                ]}
+            ],
+            system: [
+                { category: 'SYSTEMS/GTD 🔄', items: [
+                    'Review Physical Inbox/Post-Its (get to zero)', 
+                    'Mind Sweep (any loose thoughts/ideas)', 
+                    'Review Calendar 2 weeks backwards (capture actions)', 
+                    'New tools/apps/system tweaks to test'
+                ]}
+            ]
+        };
+
+        // Define the sequential steps for the later Weekly Review phase
+        const sequentialReviewSteps = {
+            review_calendar: [
+                'Review Calendar (2 weeks backwards) for actions not captured.',
+                'Review Calendar (2 weeks forwards) for hard landscape awareness.',
+                'Timeblock the next 2 weeks in Sunsama based on hard commitments (appointments, shifts).'
+            ],
+            review_projects: [
+                'Check all PROJECTS (confirm Outcome/VERB).',
+                'Ensure every Project has a single NEXT ACTION defined.',
+                'Review NEXT ACTIONS list: Mark off completions.',
+                'Review NEXT ACTIONS list: Incubate slow or blocked items.'
+            ],
+            review_waiting: [
+                'Review WAITING FOR list (record follow-up actions needed).',
+                'Review WAITING FOR list (delete items that are done).',
+                'Review SOMEDAY/MAYBE list (activate current ideas to PROJECTS).',
+                'Review SOMEDAY/MAYBE list (delete stuff not relevant anymore).'
+            ],
+            engage_sunsama: [
+                'Review weekly time block To-Dos (e.g., Clinical Time, Academic Time) in Sunsama.',
+                'Drag P1 (Very Important) NEXT ACTIONS from Todoist into Sunsama time blocks.',
+                'Drag P2 (Important) NEXT ACTIONS from Todoist into Sunsama time blocks.',
+                'Ensure a buffer block is kept free in your daily plan.'
+            ],
+            completion_loop: [
+                'Check if current Next Action is complete in Sunsama.',
+                'Visit the parent Project in Todoist.',
+                'Create the new NEXT ACTION to move the project forward.',
+                'Send the new NEXT ACTION to the Todoist Inbox for processing/labeling.'
+            ]
+        };
+
+        // Define the entire workflow state
+        const workflowSteps = [
+            // 0: Start - UPDATED TO INCLUDE WEEKLY REVIEW JUMP
+            { id: 'start', title: 'Welcome to the GTD Flow', text: 'This guide will walk you through processing your Todoist Inbox or starting your Weekly Review.', phase: 'Introduction', type: 'info', options: [
+                { text: 'Start Processing Inbox Items', next: 'collect' },
+                { text: 'Inbox is Zero! Proceed to Weekly Review', next: 'weekly_review_start' }
+            ] },
+
+            // --- Phase 1: GET CLEAR (COLLECTION) ---
+            { id: 'collect', title: '1. GET CLEAR: Collect Everything', text: 'Confirm: All physical, digital, and email inboxes are now empty, and everything has been moved into your **Todoist Inbox**.', phase: 'GET CLEAR (Collection)', type: 'info', options: [{ text: 'Yes, Inbox is Full/Ready', next: 'process_item' }] },
+
+            // --- Phase 2: CLARIFY & PROCESS (DECISION) ---
+            // 2: Main Processing Loop
+            { id: 'process_item', title: '2. CLARIFY: What is this Item?', text: 'Take the next item from your Todoist Inbox. Ask: "What stuff is this? What does DONE look like? Is there a ToDo here?"', phase: 'CLARIFY (Processing)', type: 'question', options: [{ text: 'Item is Actionable (YES)', next: 'single_step' }, { text: 'Item is Non-Actionable (NO)', next: 'non_actionable' }] },
+
+            // 3: NON-ACTIONABLE BRANCH
+            { id: 'non_actionable', title: '2.A. Non-Actionable', text: 'This item doesn\'t require a task. What is its fate?', phase: 'CLARIFY (Non-Actionable)', type: 'question', options: [
+                { text: 'Not Needed (Trash ❌)', next: 'task_summary', feedback: 'Action: **Trash** the item. Go to the next item in your Inbox.' },
+                { text: 'May need later (Reference 📚)', next: 'task_summary', feedback: 'Action: **File** as Reference. Go to the next item.' },
+                { text: 'Want to think about it later (Someday/Maybe 💡)', next: 'task_summary', feedback: 'Action: **Move** to Someday/Maybe list. Go to the next item.' }
+            ] },
+
+            // 4: ACTIONABLE BRANCH - Single Step / Project
+            { id: 'single_step', title: '2.B. Is it a Single-Step Task?', text: 'Can you achieve the "DONE" state with just one immediate physical action (e.g., "Email John")', phase: 'CLARIFY (Actionable)', type: 'question', options: [
+                { text: 'YES, Single Step', next: 'two_minute' },
+                { text: 'NO, Multi-Step (PROJECT)', next: 'define_project' }
+            ] },
+
+            // 5: PROJECT BRANCH
+            { id: 'define_project', title: '2.C. Define Project', text: 'Action: **Define the Project** (Outcome + VERB). **Define the single NEXT ACTION** to start it. Now, process this NEXT ACTION through the rest of the flow.', phase: 'CLARIFY (Project Setup)', type: 'info', options: [{ text: 'Next Action Defined, Continue Process', next: 'two_minute' }] },
+
+            // 6: SINGLE STEP BRANCH - 2 Minute Rule
+            { id: 'two_minute', title: '2.D. The 2-5 Minute Rule', text: 'Can this single Next Action be completed in <2-5 minutes?', phase: 'CLARIFY (Actionable)', type: 'question', options: [
+                { text: 'YES (Do It Now! ⚡)', next: 'task_summary', feedback: 'Action: **Do It Now!** The task is complete. Go to the next item.' },
+                { text: 'NO (Must Defer)', next: 'urgency_check' }
+            ] },
+
+            // 7: DEFERRAL / CATEGORIZATION - Calendar
+            { id: 'urgency_check', title: '2.E. Calendar Check', text: 'Does it need a specific date/time? (Is there a real-world, external consequence for missing it?)', phase: 'CLARIFY (Categorize)', type: 'question', options: [
+                { text: 'YES (Calendar 📅)', next: 'task_summary', feedback: 'Action: Add to **CALENDAR**. Go to the next item.' },
+                { text: 'NO (Next Action)', next: 'waiting_for_check' }
+            ] },
+
+            // 8: DEFERRAL / CATEGORIZATION - Waiting For
+            { id: 'waiting_for_check', title: '2.F. Waiting For Check', text: 'Are you blocked? Does it require input from someone else before you can take the next step?', phase: 'CLARIFY (Categorize)', type: 'question', options: [
+                { text: 'YES (Waiting For ⏱️)', next: 'task_summary', feedback: 'Action: Move to **WAITING FOR** list. Go to the next item.' },
+                { text: 'NO (It\'s a NEXT ACTION)', next: 'assign_priority' }
+            ] },
+
+            // 9: FINAL NEXT ACTION SETUP - Priority
+            { id: 'assign_priority', title: '2.G. Assign Priority (Importance)', text: 'This is a **NEXT ACTION**. Use flags for **Importance** (P1-P4).', phase: 'CLARIFY (Final Setup)', type: 'question', options: [
+                { text: 'P1 ⚡️ (Very Important)', next: 'finalize_action' },
+                { text: 'P2 🔥 (Important)', next: 'finalize_action' },
+                { text: 'P3 💨 (Less Important)', next: 'finalize_action' },
+                { text: 'P4 ☕️ (Can Wait)', next: 'finalize_action' }
+            ] },
+
+            // 10: FINAL NEXT ACTION SETUP - Labels/Dates (Now a custom UI step)
+            { id: 'finalize_action', title: '2.H. Assign Labels & Finalize', text: 'Apply the relevant labels to your Next Action in Todoist. Remember, use a Due Date only for external urgency.', phase: 'CLARIFY (Final Setup)', type: 'label_selector', options: [] },
+
+            // 11: SUMMARY DISPLAY
+            { id: 'task_summary', title: '✅ Item Processed Summary!', text: '', phase: 'CLARIFY (Summary)', type: 'summary', options: [
+                { text: 'Process Next Item', next: 'process_item' },
+                { text: 'Inbox is Zero! Proceed to Review.', next: 'weekly_review_start' }
+            ] },
+
+            // --- Phase 3: WEEKLY REVIEW: GET CURRENT (SPLIT INTO THREE STEPS) ---
+            
+            // 12: Review Start (Intro)
+            { id: 'weekly_review_start', title: '3. WEEKLY REVIEW: Get Current', text: 'The inbox is empty. It\'s time to look at the landscape (recommended: Friday afternoon).', phase: 'WEEKLY REVIEW', type: 'info', options: [{ text: 'Begin Brain Dump (Professional Sweep)', next: 'review_professional' }] },
+            
+            // 13: Brain Dump Step 1: Professional
+            { id: 'review_professional', title: '3.A. Brain Dump: Professional Sweep 🩺', text: 'Sweep through your Clinical, Research, Academic, and Administrative areas. Capture any lingering thoughts or obligations into your Todoist Inbox.', phase: 'WEEKLY REVIEW', type: 'brain_dump', triggerGroup: 'professional', options: [] },
+
+            // 14: Brain Dump Step 2: Personal
+            { id: 'review_personal', title: '3.B. Brain Dump: Personal Sweep 🏡', text: 'Sweep through your Family, Home, Financial, and Health areas. Capture any lingering thoughts or obligations into your Todoist Inbox.', phase: 'WEEKLY REVIEW', type: 'brain_dump', triggerGroup: 'personal', options: [] },
+
+            // 15: Brain Dump Step 3: System
+            { id: 'review_system', title: '3.C. Brain Dump: System & GTD Check ⚙️', text: 'Sweep through your GTD/Tools and Next Actions to ensure system integrity. Capture any new ideas into your Todoist Inbox.', phase: 'WEEKLY REVIEW', type: 'brain_dump', triggerGroup: 'system', options: [] },
+
+            // 16: Review Calendar (3.D)
+            { id: 'review_calendar', title: '3.D. Review Hard Landscape', text: 'Complete these actions related to your Calendar to ensure you have captured all hard commitments and related tasks.', phase: 'WEEKLY REVIEW', type: 'review_checklist', options: [{ text: 'Calendar & Time Blocks Done', next: 'review_projects' }] },
+
+            // 17: Review Projects (3.E)
+            { id: 'review_projects', title: '3.E. Review Projects & Next Actions', text: 'Ensure all your projects are clearly defined and progressing with a single next step.', phase: 'WEEKLY REVIEW', type: 'review_checklist', options: [{ text: 'Projects & Next Actions Clear', next: 'review_waiting' }] },
+
+            // 18: Review Waiting/Someday (3.F)
+            { id: 'review_waiting', title: '3.F. Review Waiting & Someday', text: 'Clear your lists of deferred or dependent tasks, turning them into projects or deleting them as needed.', phase: 'WEEKLY REVIEW', type: 'review_checklist', options: [{ text: 'Ready for Engagement', next: 'engage_sunsama' }] },
+
+            // 19: ENGAGEMENT (4) - NOW CHECKBOXES
+            { id: 'engage_sunsama', title: '4. ENGAGE: Daily Planning', text: 'Action: Time Block the week with your Next Actions using Sunsama.', phase: 'ENGAGEMENT', type: 'review_checklist', options: [{ text: 'Engagement Phase Complete', next: 'completion_loop' }] },
+
+            // 20: Completion Loop (5) - NOW CHECKBOXES
+            { id: 'completion_loop', title: '5. The Completion Loop', text: 'Reminder: This loop is your final habit check to ensure continuous project momentum.', phase: 'ENGAGEMENT', type: 'review_checklist', options: [{ text: 'Restart Guide', next: 'start' }] }
+        ];
+
+        // --- 2. STATE MANAGEMENT ---
+        let currentStepIndex = 0;
+        let history = []; // Stores the index of the step visited for back button
+        let currentItemPath = []; // Stores the choices for the current item being processed
+        let totalItemsProcessed = 0; // Counter for completed items
+        let selectedLabels = {}; // Object to hold selected labels for the current item: {categoryName: labelValue/array of values}
+        let reviewedTriggers = {}; // Tracks which brain dump items have been clicked
+        let completedSequentialSteps = {}; // Tracks completed steps in 3D, 3E, 3F, 4, 5
+
+        // --- 3. DOM ELEMENTS ---
+        const stepTitle = document.getElementById('stepTitle');
+        const stepText = document.getElementById('stepText');
+        const stepFeedback = document.getElementById('stepFeedback');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const currentPhase = document.getElementById('currentPhase');
+        const itemsProcessedSpan = document.getElementById('itemsProcessedSpan');
+        const currentStepHistorySpan = document.getElementById('currentStepHistorySpan');
+        const backButton = document.getElementById('backButton');
+
+        // --- 4. CORE FUNCTIONS ---
+
+        function getStepById(id) {
+            return workflowSteps.findIndex(step => step.id === id);
+        }
+
+        function updateUI() {
+            const step = workflowSteps[currentStepIndex];
+            const stepId = step.id; // Get current step ID
+
+            // Standard UI updates (Title, Phase, Counters)
+            stepTitle.textContent = step.title;
+            currentPhase.textContent = `Phase: ${step.phase}`;
+            itemsProcessedSpan.textContent = totalItemsProcessed;
+            currentStepHistorySpan.textContent = history.length;
+
+            // Clear previous feedback and options
+            stepFeedback.classList.add('hidden');
+            stepFeedback.innerHTML = '';
+            optionsContainer.innerHTML = '';
+            optionsContainer.classList.add('space-y-3'); // Default button layout
+
+            // --- Dynamic Content Rendering ---
+            if (stepId === 'task_summary') {
+                renderSummary(step);
+            } else if (stepId === 'finalize_action') {
+                renderLabelSelector(optionsContainer);
+                optionsContainer.classList.remove('space-y-3'); // Custom spacing for labels
+            } else if (step.type === 'brain_dump') { 
+                renderBrainDump(optionsContainer, step.triggerGroup);
+                optionsContainer.classList.remove('space-y-3'); // Custom spacing for list
+            } else if (step.type === 'review_checklist') { 
+                renderSequentialChecklist(optionsContainer, stepId, step.options[0]);
+                optionsContainer.classList.remove('space-y-3'); // Custom spacing for list
+            } else {
+                stepText.innerHTML = step.text;
+                // --- Standard Button Rendering ---
+                step.options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option.text;
+                    // Custom style for the 'Proceed to Weekly Review' button on the start screen
+                    if (stepId === 'start' && option.next === 'weekly_review_start') {
+                         button.className = 'w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2';
+                    } else {
+                        button.className = 'w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2';
+                    }
+                    
+                    button.onclick = () => processDecision(option.next, option.feedback, option.text);
+                    optionsContainer.appendChild(button);
+                });
+            }
+
+
+            // Update Back Button state
+            backButton.disabled = history.length <= 1;
+
+            // SCROLL BEHAVIOR FIX: For new major steps, scroll to top. For brain dump, rely on browser.
+            if (step.type !== 'review_checklist' && step.type !== 'brain_dump') {
+                 document.getElementById('guideContent').scrollTop = 0;
+            }
+        }
+
+        function processDecision(nextId, feedbackText = null, choiceText = null) {
+            // Record current step index before moving
+            history.push(currentStepIndex);
+
+            // Capture the choice for the current item's path (only if we are in the CLARIFY phase)
+            const currentStep = workflowSteps[currentStepIndex];
+            
+            if (currentStep.phase.includes('CLARIFY') && currentStep.type !== 'label_selector') {
+                let stepSummaryName = currentStep.title.replace(/(\d+\.\w+\.)/, '').trim();
+                
+                if (currentStep.id === 'process_item') { stepSummaryName = 'Action Status'; } 
+                else if (currentStep.id === 'define_project') { stepSummaryName = 'Project Status'; } 
+                else if (currentStep.next && currentStep.next.includes('task_summary')) { stepSummaryName = 'Disposition'; }
+
+                if (choiceText && nextId !== currentStep.id) {
+                    currentItemPath.push({ step: stepSummaryName, choice: choiceText });
+                }
+            } else if (currentStep.id === 'finalize_action' && choiceText) {
+                 currentItemPath.push({ step: 'Disposition', choice: 'NEXT ACTION with Labels' });
+            }
+
+            if (feedbackText) {
+                stepFeedback.innerHTML = feedbackText;
+                stepFeedback.classList.remove('hidden');
+            }
+            
+            // Reset state if starting a new item flow
+            if (nextId === 'process_item') {
+                selectedLabels = {};
+            }
+            
+            // Reset reviewed triggers if starting a new review (only on the main review start)
+            if (nextId === 'review_professional') {
+                reviewedTriggers = {};
+                completedSequentialSteps = {};
+            }
+
+            // Move to the next step
+            currentStepIndex = getStepById(nextId);
+            if (currentStepIndex === -1) {
+                console.error(`Error: Could not find next step ID: ${nextId}`);
+                currentStepIndex = 0; // Fallback to start
+            }
+
+            updateUI();
+        }
+
+        function goBack() {
+            if (history.length > 1) {
+                if (workflowSteps[currentStepIndex].id === 'task_summary') {
+                    totalItemsProcessed = Math.max(0, totalItemsProcessed - 1);
+                }
+                
+                history.pop();
+                const previousStepIndex = history.pop();
+
+                if (currentItemPath.length > 0 && workflowSteps[previousStepIndex].phase.includes('CLARIFY')) {
+                    currentItemPath.pop();
+                }
+                
+                currentStepIndex = previousStepIndex;
+                history.push(currentStepIndex);
+                
+                if (workflowSteps[currentStepIndex].id === 'process_item') {
+                     currentItemPath = []; 
+                     selectedLabels = {};
+                }
+
+                updateUI();
+            } else if (history.length === 1) {
+                history = [];
+                currentStepIndex = 0;
+                updateUI();
+            }
+        }
+        
+        // --- 5. RENDER FUNCTIONS ---
+        
+        function renderSummary(step) {
+            totalItemsProcessed++;
+
+            let pathHtml = `<div class="space-y-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">`;
+            pathHtml += `<p class="text-md font-bold text-gray-700">Summary for Item #${totalItemsProcessed}</p>`;
+            pathHtml += `<ul class="list-disc ml-5 space-y-2 text-sm text-gray-700">`;
+
+            currentItemPath.forEach((item) => {
+                let liClass = (item.step === 'Disposition') ? 'font-bold text-indigo-700' : 'text-gray-700';
+                pathHtml += `<li class="${liClass}"><span class="font-medium text-gray-500">${item.step}:</span> ${item.choice}</li>`;
+            });
+            
+            const finalLabels = [];
+            Object.values(selectedLabels).forEach(value => {
+                if (Array.isArray(value)) {
+                    finalLabels.push(...value);
+                } else if (value) {
+                    finalLabels.push(value);
+                }
+            });
+            
+            if (finalLabels.length > 0) {
+                pathHtml += `<li class="font-bold text-green-700"><span class="font-medium text-gray-500">Labels Applied:</span> ${finalLabels.join(', ')}</li>`;
+            } else if (currentItemPath.some(item => item.step.includes('Priority'))) {
+                pathHtml += `<li class="font-bold text-orange-700"><span class="font-medium text-gray-500">Labels Applied:</span> None. Remember to add context, time, and energy labels!</li>`;
+            } else {
+                 pathHtml += `<li class="text-gray-500"><span class="font-medium text-gray-500">Labels Applied:</span> N/A (Non-Actionable Item)</li>`;
+            }
+
+            pathHtml += '</ul></div>';
+            stepText.innerHTML = `<p class="text-gray-600 leading-relaxed mb-4">You have successfully processed an item and determined its fate. Review the path below:</p>` + pathHtml;
+
+            currentItemPath = [];
+            // Render buttons for summary navigation
+            step.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.className = 'w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2';
+                button.onclick = () => processDecision(option.next, option.feedback, option.text);
+                optionsContainer.appendChild(button);
+            });
+        }
+        
+        function toggleLabel(categoryName, label) {
+            const config = getCategoryConfig(categoryName);
+            if (!config) return;
+
+            if (config.single) {
+                const isSelected = selectedLabels[categoryName] === label;
+                if (isSelected) { delete selectedLabels[categoryName]; } 
+                else { selectedLabels[categoryName] = label; }
+            } else {
+                if (!Array.isArray(selectedLabels[categoryName])) {
+                    selectedLabels[categoryName] = [];
+                }
+                
+                const index = selectedLabels[categoryName].indexOf(label);
+
+                if (index > -1) {
+                    selectedLabels[categoryName].splice(index, 1);
+                    if (selectedLabels[categoryName].length === 0) {
+                        delete selectedLabels[categoryName];
+                    }
+                } else {
+                    selectedLabels[categoryName].push(label);
+                }
+            }
+            
+            updateUI();
+        }
+        
+        function renderLabelSelector(container) {
+            container.innerHTML = '';
+            
+            const labelsDiv = document.createElement('div');
+            labelsDiv.className = 'space-y-4 max-h-80 overflow-y-auto pr-2';
+            
+            labelCategories.forEach(category => {
+                const catDiv = document.createElement('div');
+                catDiv.className = 'border-t pt-3';
+                const selectionType = category.single ? 'Choose 1 (Area of Focus)' : 'Choose 1+ (Execution)';
+                catDiv.innerHTML = `<p class="text-sm font-bold text-gray-700 mb-2">${category.name} (${selectionType})</p>`;
+                
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.className = 'flex flex-wrap gap-2';
+                
+                category.labels.forEach(label => {
+                    const button = document.createElement('button');
+                    button.textContent = label;
+                    button.className = 'label-button px-3 py-1 text-xs font-medium rounded-full border transition duration-150 ease-in-out shadow-sm';
+                    
+                    let isSelected = false;
+                    const selectedValue = selectedLabels[category.name];
+                    
+                    if (category.single) {
+                        isSelected = selectedValue === label;
+                    } else if (Array.isArray(selectedValue)) {
+                        isSelected = selectedValue.includes(label);
+                    }
+                    
+                    if (isSelected) {
+                        button.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600', 'hover:bg-indigo-700');
+                    } else {
+                        button.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-indigo-100', 'border-gray-300');
+                    }
+
+                    button.onclick = () => toggleLabel(category.name, label);
+                    buttonsDiv.appendChild(button);
+                });
+                
+                catDiv.appendChild(buttonsDiv);
+                labelsDiv.appendChild(catDiv);
+            });
+
+            container.appendChild(labelsDiv);
+
+            const confirmButton = document.createElement('button');
+            confirmButton.textContent = 'Confirm Labels & Finalize Task';
+            confirmButton.className = 'mt-6 w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2';
+            confirmButton.onclick = () => processDecision('task_summary', null, 'Labels Assigned'); 
+            container.appendChild(confirmButton);
+        }
+        
+        function getTriggerId(group, catIndex, itemIndex) {
+            return `${group}-${catIndex}-${itemIndex}`;
+        }
+        
+        function toggleTrigger(group, catIndex, itemIndex) {
+            const id = getTriggerId(group, catIndex, itemIndex);
+            if (reviewedTriggers[id]) {
+                delete reviewedTriggers[id];
+            } else {
+                reviewedTriggers[id] = true;
+            }
+            updateUI(); // Re-render to update the list appearance
+        }
+
+        function renderBrainDump(container, group) {
+            let listHtml = '';
+            let totalTriggers = 0;
+            let completedCount = 0;
+            
+            const triggers = brainDumpTriggers[group];
+
+            triggers.forEach((cat, catIndex) => {
+                listHtml += `<div class="mt-4"><h3 class="text-base font-semibold text-indigo-700 border-b pb-1 mb-2">${cat.category}</h3><ul>`;
+                cat.items.forEach((item, itemIndex) => {
+                    const id = getTriggerId(group, catIndex, itemIndex);
+                    const isReviewed = reviewedTriggers[id];
+                    
+                    totalTriggers++;
+                    if (isReviewed) completedCount++;
+                    
+                    // Bind the toggleTrigger function with specific indices
+                    listHtml += `<li onclick="toggleTrigger('${group}', ${catIndex}, ${itemIndex})" class="trigger-item p-2 rounded-lg text-gray-700 flex items-center ${isReviewed ? 'reviewed' : ''}">
+                                    <span class="mr-2">${isReviewed ? '✅' : '⚪'}</span>
+                                    <span>${item}</span>
+                                </li>`;
+                });
+                listHtml += `</ul></div>`;
+            });
+            
+            const progress = (completedCount / totalTriggers) * 100;
+
+            const currentStep = workflowSteps[currentStepIndex];
+            stepText.innerHTML = `
+                ${currentStep.text} 
+                <div class="mt-4 text-sm font-medium text-gray-700">
+                    Progress in **${currentStep.title.replace(/3\.[A-C]\. Brain Dump: /, '').replace(/ \S+$/, '')}** Sweep: ${completedCount} / ${totalTriggers} reviewed (${progress.toFixed(0)}%)
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                    <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: ${progress}%"></div>
+                </div>
+                <div class="mt-6">${listHtml}</div>
+            `;
+            
+            // Determine the next step based on the current group
+            let nextStepId;
+            let buttonText;
+            if (group === 'professional') {
+                nextStepId = 'review_personal';
+                buttonText = 'Sweep Complete. Proceed to Personal Sweep →';
+            } else if (group === 'personal') {
+                nextStepId = 'review_system';
+                buttonText = 'Sweep Complete. Proceed to System Check →';
+            } else {
+                nextStepId = 'review_calendar';
+                buttonText = 'Brain Dump Finished. Proceed to Calendar Review →';
+            }
+
+            // Add the confirmation button
+            const confirmButton = document.createElement('button');
+            confirmButton.textContent = buttonText;
+            confirmButton.className = `mt-6 w-full text-white font-semibold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-md`;
+            
+            if (progress < 100) {
+                confirmButton.classList.add('bg-orange-500', 'hover:bg-orange-600');
+            } else {
+                confirmButton.classList.add('bg-green-600', 'hover:bg-green-700');
+            }
+
+            confirmButton.onclick = () => {
+                // Since this step doesn't generate an item, we just move to the next step
+                processDecision(nextStepId, null, `Brain Dump ${group} Completed`); 
+            };
+            container.appendChild(confirmButton);
+        }
+
+        // Sequential Checklist Renderer (For 3D, 3E, 3F, 4, 5)
+        function toggleSequentialStep(stepId, index) {
+            if (!completedSequentialSteps[stepId]) {
+                completedSequentialSteps[stepId] = {};
+            }
+            if (completedSequentialSteps[stepId][index]) {
+                delete completedSequentialSteps[stepId][index];
+            } else {
+                completedSequentialSteps[stepId][index] = true;
+            }
+            updateUI();
+        }
+
+        function renderSequentialChecklist(container, stepId, finalOption) {
+            const step = workflowSteps[currentStepIndex];
+            stepText.innerHTML = `<p class="text-gray-600 leading-relaxed mb-4">${step.text}</p>`;
+
+            const actions = sequentialReviewSteps[stepId];
+            if (!actions) return;
+
+            const checklistDiv = document.createElement('div');
+            checklistDiv.className = 'space-y-3';
+            let completedCount = 0;
+
+            actions.forEach((action, index) => {
+                const isComplete = completedSequentialSteps[stepId] && completedSequentialSteps[stepId][index];
+                if (isComplete) completedCount++;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `checklist-item flex items-center cursor-pointer ${isComplete ? 'complete' : 'bg-gray-50 hover:bg-gray-100'}`;
+                itemDiv.onclick = () => toggleSequentialStep(stepId, index);
+
+                itemDiv.innerHTML = `
+                    <span class="text-lg mr-3">${isComplete ? '✅' : '☐'}</span>
+                    <span class="flex-1">${action}</span>
+                `;
+                checklistDiv.appendChild(itemDiv);
+            });
+
+            container.appendChild(checklistDiv);
+
+            const totalActions = actions.length;
+            const progress = (completedCount / totalActions) * 100;
+
+            const progressHtml = `
+                <div class="mt-6 text-sm font-medium text-gray-700">
+                    Progress: ${completedCount} / ${totalActions} actions completed (${progress.toFixed(0)}%)
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                    <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: ${progress}%"></div>
+                </div>
+            `;
+            stepText.insertAdjacentHTML('beforeend', progressHtml);
+
+            const button = document.createElement('button');
+            button.textContent = finalOption.text;
+            button.className = `mt-6 w-full text-white font-semibold py-3 px-4 rounded-lg transition duration-150 ease-in-out shadow-md`;
+            
+            button.disabled = completedCount < totalActions;
+            if (button.disabled) {
+                button.classList.add('bg-gray-400', 'cursor-not-allowed');
+            } else {
+                button.classList.add('bg-green-600', 'hover:bg-green-700');
+            }
+
+            button.onclick = () => processDecision(finalOption.next, null, finalOption.text);
+            container.appendChild(button);
+        }
+        
+        // --- 6. INITIALIZATION ---
+
+        // Start the application
+        history.push(currentStepIndex);
+        updateUI();
+
+    </script>
+</body>
+</html>
